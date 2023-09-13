@@ -4,66 +4,90 @@ zeca_bricks = {}
 zeca_bricks.modname = core.get_current_modname()
 zeca_bricks.modpath = core.get_modpath(zeca_bricks.modname)
 
+--loading sounds
 dofile(zeca_bricks.modpath .. "/functions.lua")
 
 local files = minetest.get_dir_list(zeca_bricks.modpath .. "/textures")
 
-local two_x_one_cbox = {
+--boxes
+local two_x_four_cbox = {
     type = "fixed",
-    fixed = {-0.5, -0.5, 1.5, 0.5, 0.5, -0.5}		
+    fixed = {-0.5, -0.5, 1.5, 0.5, 0.5, -0.5}	
 }
-
-local one_x_one_slab_cbox = {
+local two_x_two_slab_cbox = {
     type = "fixed",
     fixed = {-0.5, -0.5, -0.5, 0.5, 0, 0.5}		
 }
-
-local two_x_one_slab_cbox = {
+local two_x_four_slab_cbox = {
     type = "fixed",
-    fixed = {
-	{-0.5, -0.5, 0.5, 0.5, 0, -0.5},
-	{-0.5, -0.5, 1.5, 0.5, 0, 0.5}
-	}
+    fixed = { -0.5, -0.5, 1.5, 0.5, 0, -0.5	}
+}  
+local one_x_four_slab_cbox = {
+    type = "fixed",
+    fixed = { -0.5, -0.5, 1.5, 0, 0, -0.5	}
 }           
-	--  A     B   C    D   E   F 
-        
-local function rotate_and_place(itemstack, placer, pointed_thing)
-	local p0 = pointed_thing.under
-	local p1 = pointed_thing.above
-	local param2 = 0
+local one_x_two_slab_cbox = {
+    type = "fixed",
+    fixed = {-0.5, -0.5, 0, 0.5, 0, 0.5}		
+}
 
-	if placer then
-		local placer_pos = placer:get_pos()
-		if placer_pos then
-			local diff = vector.subtract(p1, placer_pos)
-			param2 = minetest.dir_to_facedir(diff)
-			-- The player places a node on the side face of the node he is standing on
-			if p0.y == p1.y and math.abs(diff.x) <= 0.5 and math.abs(diff.z) <= 0.5 and diff.y < 0 then
-				-- reverse node direction
-				param2 = (param2 + 2) % 4
-			end
-		end
+local one_x_two_cbox = {
+    type = "fixed",
+    fixed = {-0.5, -0.5, 0, 0.5, 0.5, 0.5}		
+}
 
-		local finepos = minetest.pointed_thing_to_face_pos(placer, pointed_thing)
-		local fpos = finepos.y % 1
 
-		if p0.y - 1 == p1.y or (fpos > 0 and fpos < 0.5)
-				or (fpos < -0.5 and fpos > -0.999999999) then
-			param2 = param2 + 20
-			if param2 == 21 then
-				param2 = 23
-			elseif param2 == 23 then
-				param2 = 21
-			end
-		end
-	end
-	return minetest.item_place(itemstack, placer, pointed_thing, param2)
+minetest.register_node("zeca_bricks:second_node", {
+    description = "second node ghost",
+    drawtype = "airlike",
+    
+	use_texture_alpha = true,
+	--paramtype = "light",
+	--sunlight_propagates = true,
+
+    walkable     = false, -- Would make the player collide with the air node
+    pointable    = false, -- You can't select the node
+    diggable     = false, -- You can't dig the node
+    buildable_to = false,  -- Nodes can be replace this node.
+                          -- (you can place a node and remove the air node
+                          -- that used to be there)
+
+    air_equivalent = true,
+    drop = "",
+    groups = {not_in_creative_inventory=1}
+})
+
+fdir_table = {
+   { 0, 1 }, --		[0] X,Z delta +Z
+   { 1, 0 }, --		[1] X,Z delta +X
+   { 0, -1 }, --	[2] X,Z delta -Z
+   { -1, 0 } --		[3] X,Z delta -X
+}
+
+function space_to_side(pos, placed_node)
+   local node = minetest.get_node(pos)
+   local fdir = node.param2 % 32
+   local pos2 = {x = pos.x + fdir_table[fdir+1][1], y=pos.y, z = pos.z + fdir_table[fdir+1][2]}
+   local node2 = minetest.get_node(pos2)
+   local node2def = minetest.registered_nodes[node2.name] or nil
+   if not node2def.buildable_to then
+      return false
+   else
+      local placed_node = placed_node or 'zeca_bricks:second_node'
+      minetest.set_node(pos2,{name = placed_node, param2=fdir})
+      return true
+   end
 end
 
-local function warn_if_exists(nodename)
-	if minetest.registered_nodes[nodename] then
-		minetest.log("warning", "Overwriting slab brick node: " .. nodename)
-	end
+function remove_side_node(pos, oldnode)
+   local fdir = oldnode.param2 % 32
+   local pos2 = {x = pos.x + fdir_table[fdir+1][1], y=pos.y, z = pos.z + fdir_table[fdir+1][2]}
+   --local node2 = minetest.get_node(pos2).name 
+   --if minetest.get_item_group(node2, 'zeca_bricks:second_node') > 0 then
+   minetest.remove_node(pos2)
+   --end
+   --minetest.swap_node(pos2,"air")
+   
 end
 
 function make_node_def(name, model, tiles, selbox, colbox, not_in_creative_inventory)
@@ -74,59 +98,40 @@ function make_node_def(name, model, tiles, selbox, colbox, not_in_creative_inven
 		tiles = {
 			tiles
 		},
+		use_texture_alpha = true,
+		
 		drawtype = "mesh",
+			sunlight_propagates = sunlight,
+			light_source = light_source,
 		paramtype = "light",
+		--sunlight_propagates = true,
+		
 		paramtype2 = "facedir",
-		sunlight_propagates = true,
 		mesh = model,
 		visual_scale = 0.5,
 		wield_scale = {x = 0.5, y = 0.5, z = 0.5},
-		groups = {cracky=0, oddly_breakable_by_hand = 3},
+		groups = { snappy = 3 },
 		selection_box = selbox,
 		collision_box = colbox,
-		is_ground_content = false,
 		sounds = node_sound_zeca_bricks_defaults(),
-	
-		--rotation
-		on_place = function(itemstack, placer, pointed_thing)
-			local under = minetest.get_node(pointed_thing.under)
+		
+		after_place_node = function(pos, placer, itemstack)
 			local wield_item = itemstack:get_name()
-			local player_name = placer and placer:get_player_name() or ""
-
-			if under and under.name:find("^zeca_bricks:2x1_slab_") then
-				-- place slab using under node orientation
-				local dir = minetest.dir_to_facedir(vector.subtract(
-					pointed_thing.above, pointed_thing.under), true)
-
-				local p2 = under.param2
-
-				-- Placing a slab on an upside down slab should make it right-side up.
-				if p2 >= 20 and dir == 8 then
-					p2 = p2 - 20
-				-- same for the opposite case: slab below normal slab
-				elseif p2 <= 3 and dir == 4 then
-					p2 = p2 + 20
+			if wield_item:find("^zeca_bricks:2x4_") or wield_item:find("^zeca_bricks:1x4_") then
+			
+				if not space_to_side(pos) then
+					minetest.remove_node(pos)
+					return itemstack
 				end
-
-				-- else attempt to place node with proper param2
-
-				--for _, file_name in ipairs(files) do
-				--minetest.chat_send_player("singleplayer", string.gsub(file_name,".png",""))
-				--end
 				
-				minetest.item_place_node(ItemStack(wield_item), placer, pointed_thing, p2)
-				if not minetest.is_creative_enabled(player_name) then
-					itemstack:take_item()
-				end
-				return itemstack
-			else
-				
-			return rotate_and_place(itemstack, placer, pointed_thing)
-							
 			end
-					
 		end,
-		--rotation	
+		
+		after_dig_node = function(pos, oldnode, oldmetadata)
+			if oldnode.name:find("^zeca_bricks:2x4_") or oldnode.name:find("^zeca_bricks:1x4_") then
+			remove_side_node(pos, oldnode)
+			end
+		end,
 
 	}
 end
@@ -141,9 +146,12 @@ for _, file_name in ipairs(files) do
 	color_name = string.gsub(file_name, ".png", "")
 	color_name_first_cap = firstToUpper(color_name)
 	
-	minetest.register_node("zeca_bricks:1x1_".. color_name .. "_brick", make_node_def( color_name_first_cap .." Brick 2x1","1x1_brick.obj", file_name, box, box))
-	minetest.register_node("zeca_bricks:2x1_".. color_name .. "_brick", make_node_def( color_name_first_cap .." Brick 2x1","2x1_brick.obj", file_name, two_x_one_cbox, two_x_one_cbox))
-	minetest.register_node("zeca_bricks:2x1_".. color_name .."_slab_brick", make_node_def( color_name_first_cap .." Brick Slab 2x1","2x1_slab_brick.obj", file_name, two_x_one_slab_cbox, two_x_one_slab_cbox))
-	minetest.register_node("zeca_bricks:1x1_".. color_name .."_slab_brick", make_node_def( color_name_first_cap .." Brick Slab 1x1","1x1_slab_brick.obj", file_name, one_x_one_slab_cbox, one_x_one_slab_cbox))
+	minetest.register_node("zeca_bricks:2x2_".. color_name .. "_brick", make_node_def( color_name_first_cap .." Brick 2x2","2x2_brick.obj", file_name, box, box))
+	minetest.register_node("zeca_bricks:2x4_".. color_name .. "_brick", make_node_def( color_name_first_cap .." Brick 2x4","2x4_brick.obj", file_name, two_x_four_cbox, two_x_four_cbox))
+	minetest.register_node("zeca_bricks:1x2_".. color_name .. "_brick", make_node_def( color_name_first_cap .." Brick 1x2","1x2_brick.obj", file_name, one_x_two_cbox, one_x_two_cbox))
+	minetest.register_node("zeca_bricks:2x4_".. color_name .."_slab_brick", make_node_def( color_name_first_cap .." Brick Slab 2x4","2x4_slab_brick.obj", file_name, two_x_four_slab_cbox, two_x_four_slab_cbox))
+	minetest.register_node("zeca_bricks:2x2_".. color_name .."_slab_brick", make_node_def( color_name_first_cap .." Brick Slab 2x2","2x2_slab_brick.obj", file_name, two_x_two_slab_cbox, two_x_two_slab_cbox))
+	minetest.register_node("zeca_bricks:1x2_".. color_name .."_slab_brick", make_node_def( color_name_first_cap .." Brick Slab 1x2","1x2_slab_brick.obj", file_name, one_x_two_slab_cbox, one_x_two_slab_cbox))
+	minetest.register_node("zeca_bricks:1x4_".. color_name .."_slab_brick", make_node_def( color_name_first_cap .." Brick Slab 1x4","1x4_slab_brick.obj", file_name, one_x_four_slab_cbox, one_x_four_slab_cbox))
 
 end
