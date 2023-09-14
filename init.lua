@@ -98,14 +98,15 @@ function make_node_def(name, model, tiles, selbox, colbox, not_in_creative_inven
 		tiles = {
 			tiles
 		},
-		use_texture_alpha = true,
 		
 		drawtype = "mesh",
-			sunlight_propagates = sunlight,
-			light_source = light_source,
-		paramtype = "light",
-		--sunlight_propagates = true,
 		
+		--use_texture_alpha = true,
+		--sunlight_propagates = sunlight,
+		--light_source = light_source,
+		paramtype = "light", 
+		--sunlight_propagates = true,
+		--sunlight_propagates = false,		
 		paramtype2 = "facedir",
 		mesh = model,
 		visual_scale = 0.5,
